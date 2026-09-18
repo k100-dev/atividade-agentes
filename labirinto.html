@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laboratório de Busca em Labirintos</title>
+<style>
+  :root{
+    --bg:#0f172a;
+    --panel:#1e293b;
+    --panel2:#334155;
+    --text:#f1f5f9;
+    --muted:#94a3b8;
+    --accent:#22d3ee;
+    --accent2:#a78bfa;
+    --wall:#0b1120;
+    --start:#22c55e;
+    --goal:#ef4444;
+    --frontier:#facc15;
+    --visited:#38bdf8;
+    --current:#f97316;
+    --path:#a78bfa;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Verdana, Geneva, Tahoma, sans-serif;
+    background:linear-gradient(180deg,#020617,#0f172a 60%,#1e1b4b);
+    color:var(--text);
+    min-height:100vh;
+  }
+  header{
+    max-width:1200px;margin:0 auto;padding:28px 16px 8px;
+    text-align:center;
+  }
+  header h1{margin:0 0 8px;font-size:clamp(1.4rem,3.5vw,2.2rem);letter-spacing:.3px}
+  header p{margin:6px auto;max-width:900px;color:#cbd5e1;line-height:1.55}
+  .badge{display:inline-block;background:#164e63;border:1px solid var(--accent);
+    color:#cffafe;padding:4px 12px;border-radius:999px;font-size:.8rem;margin-bottom:10px}
+  main{max-width:1200px;margin:0 auto;padding:12px 16px 60px}
+  .card{
+    background:rgba(30,41,59,.92);
+    border:1px solid #475569;border-radius:var(--radius);
+    padding:16px;margin:14px 0;
+    box-shadow:0 8px 30px rgba(0,0,0,.35);
+  }
+  .card h2{margin:0 0 10px;font-size:1.15rem;color:#e0f2fe}
+  .card h3{margin:14px 0 6px;font-size:1rem;color:#fef9c3}
+  .card p, .card li{line-height:1.6;color:#e2e8f0;font-size:.93rem}
+  .controls-grid{
+    display:grid;gap:12px;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    align-items:end;
+  }
+  label{font-size:.85rem;color:#cbd5e1;display:block;margin-bottom:6px}
+  input[type="number"], select{
+    width:100%;padding:9px 10px;border-radius:10px;
+    border:1px solid #64748b;background:#0f172a;color:var(--text);
+  }
+  input[type="range"]{width:100%}
+  .btn-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+  button{
+    border:1px solid #64748b;background:#0f172a;color:var(--text);
+    padding:10px 14px;border-radius:10px;cursor:pointer;font-size:.9rem;
+  }
+  button:hover:not(:disabled){border-color:var(--accent);background:#164e63}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:#0891b2;border-color:#22d3ee;font-weight:bold}
+  button.danger{border-color:#ef4444}
+  .tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .tools button.active{background:#0e7490;border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
+  .hint{font-size:.85rem;color:var(--muted);margin-top:8px;line-height:1.5}
+  .warn{background:#451a1a;border:1px solid #ef4444;border-radius:10px;padding:10px 12px;margin-top:10px;font-size:.88rem}
+  .editor-wrap{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:900px){.editor-wrap{grid-template-columns:340px 1fr}}
+  .grid{
+    display:grid;gap:2px;background:#020617;padding:8px;border-radius:12px;
+    border:1px solid #475569;user-select:none;touch-action:manipulation;
+  }
+  .cell{
+    aspect-ratio:1/1;min-width:0;min-height:0;
+    background:#e2e8f0;border-radius:3px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:.62rem;font-weight:bold;color:#0f172a;
+    cursor:pointer;border:1px solid rgba(0,0,0,.15);
+  }
+  .algo-panels .cell{cursor:default}
+  .cell.wall{background:#020617;border-color:#334155}
+  .cell.start{background:var(--start);color:#052e16}
+  .cell.goal{background:var(--goal);color:#fff}
+  .cell.frontier{background:var(--frontier);color:#422006}
+  .cell.visited{background:var(--visited);color:#082f49}
+  .cell.current{background:var(--current);color:#fff;outline:3px solid #fff;outline-offset:-3px}
+  .cell.path{background:var(--path);color:#1e1b4b}
+  .legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:12px}
+  .legend div{background:#0f172a;border:1px solid #475569;border-radius:10px;padding:8px;font-size:.8rem;line-height:1.4}
+  .swatch{display:inline-block;width:16px;height:16px;border-radius:4px;vertical-align:middle;margin-right:6px;border:1px solid #fff3}
+  .algo-panels{display:grid;gap:14px;grid-template-columns:1fr}
+  @media(min-width:900px){.algo-panels{grid-template-columns:1fr 1fr}}
+  .algo{background:#0f172a;border:1px solid #475569;border-radius:12px;padding:12px}
+  .algo h3{margin:0 0 4px}
+  .algo .desc{font-size:.82rem;color:#cbd5e1;line-height:1.5;margin:0 0 8px}
+  .algo .status{font-size:.82rem;margin:6px 0;min-height:1.4em;color:#fef9c3}
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+  .metric{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 8px;font-size:.78rem}
+  .metric b{display:block;font-size:.95rem;color:#fff}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:.85rem}
+  th,td{border:1px solid #475569;padding:8px;text-align:center}
+  th{background:#334155}
+  td{background:#0f172a}
+  footer{max-width:1200px;margin:0 auto;padding:0 16px 40px;color:var(--muted);font-size:.82rem;line-height:1.6}
+  code{background:#020617;padding:2px 6px;border-radius:6px;border:1px solid #334155}
+</style>
+</head>
+<body>
+<header>
+  <span class="badge">Atividade — Agentes de IA · Prof. Gustavo Queiroz</span>
+  <h1>Laboratório de Busca em Labirintos</h1>
+  <p>
+    Compare, passo a passo, quatro algoritmos de busca — <b>BFS</b>, <b>DFS</b>, <b>Dijkstra</b> e <b>A*</b> —
+    resolvendo <b>o mesmo labirinto em grid</b>. Cada painel abaixo é uma cópia independente do mesmo labirinto.
+    Pense em cada algoritmo como a "mente" de um agente que parte do <b>início</b> e procura o <b>objetivo (destino)</b>
+    movendo-se uma célula por vez.
+  </p>
+</header>
+
+<main>
+  <section class="card">
+    <h2>1. Configurar o labirinto</h2>
+    <div class="controls-grid">
+      <div>
+        <label for="rows">Linhas (5 a 30)</label>
+        <input type="number" id="rows" min="5" max="30" value="15">
+      </div>
+      <div>
+        <label for="cols">Colunas (5 a 30)</label>
+        <input type="number" id="cols" min="5" max="30" value="15">
+      </div>
+      <div>
+        <label for="tool">Ferramenta de clique</label>
+        <select id="tool">
+          <option value="wall">Desenhar parede</option>
+          <option value="erase">Apagar parede</option>
+          <option value="start">Definir início</option>
+          <option value="goal">Definir destino</option>
+        </select>
+      </div>
+      <div>
+        <label for="speed">Velocidade da animação: <span id="speedLabel">120 ms / passo</span></label>
+        <input type="range" id="speed" min="10" max="600" step="10" value="120">
+        <div class="hint">Menor valor = animação mais rápida. O tempo do algoritmo é medido sem incluir esse atraso.</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="btnExample" type="button">Labirinto de exemplo</button>
+      <button id="btnClear" type="button">Limpar paredes</button>
+      <button id="btnRandom" type="button">Gerar paredes aleatórias</button>
+      <button id="btnApplySize" type="button">Aplicar tamanho</button>
+    </div>
+    <p class="hint">
+      Clique ou arraste no grade do editor para desenhar/apagar. Para trocar início/destino, escolha a ferramenta
+      correspondente e clique na célula. Início e destino são sempre distintos e nunca são paredes.
+      As paredes aleatórias têm densidade de ~28% e <b>podem não ter solução</b> — isso é proposital para estudar falhas.
+    </p>
+
+    <div class="editor-wrap">
+      <div>
+        <h3>Editor (clique aqui para modificar)</h3>
+        <div id="editor" class="grid" aria-label="Editor do labirinto"></div>
+        <div id="lockMsg" class="warn" hidden>
+          Edição bloqueada durante a execução, pausa ou após a conclusão
+          (inclui tamanho, ferramentas, desenho e labirintos prontos).
+          Clique em <b>Reiniciar</b> para voltar a editar o labirinto.
+        </div>
+      </div>
+      <div>
+        <h3>Regras da comparação (reproduzível)</h3>
+        <ul>
+          <li>Movimentos apenas em <b>4 direções</b> (sem diagonais), custo uniforme <b>1 por movimento</b>.</li>
+          <li>Ordem fixa de vizinhos: <b>Cima → Direita → Baixo → Esquerda</b>.</li>
+          <li>No <b>DFS</b>, os vizinhos são empilhados nessa ordem de forma que o <b>Cima</b> seja expandido primeiro (pilha LIFO).</li>
+          <li><b>A*</b> usa heurística <b>distância de Manhattan</b>: <code>|r1-r2| + |c1-c2|</code>.</li>
+          <li>Nessas condições (custo uniforme + 4 direções), <b>BFS, Dijkstra e A* garantem caminho mínimo</b>. <b>DFS não garante</b>.</li>
+        </ul>
+        <h3>Legenda (textual, não apenas por cor)</h3>
+        <div class="legend">
+          <div><span class="swatch" style="background:#22c55e"></span><b>I = Início</b> — onde o agente começa.</div>
+          <div><span class="swatch" style="background:#ef4444"></span><b>D = Destino</b> — objetivo do agente.</div>
+          <div><span class="swatch" style="background:#020617"></span><b>Parede</b> — célula bloqueada, intransitável.</div>
+          <div><span class="swatch" style="background:#facc15"></span><b>Fronteira (F)</b> — descoberta, aguardando expansão.</div>
+          <div><span class="swatch" style="background:#38bdf8"></span><b>Visitada (·)</b> — já expandida (processada). Não inclui as células da fronteira.</div>
+          <div><span class="swatch" style="background:#f97316"></span><b>Atual (@)</b> — célula expandida neste passo.</div>
+          <div><span class="swatch" style="background:#a78bfa"></span><b>Caminho (*)</b> — reconstrução da rota final.</div>
+          <div><span class="swatch" style="background:#e2e8f0"></span><b>Livre</b> — célula transitável ainda não explorada.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. Executar a comparação</h2>
+    <div class="btn-row">
+      <button id="btnStart" type="button" class="primary">Iniciar</button>
+      <button id="btnPause" type="button" disabled>Pausar</button>
+      <button id="btnStep" type="button" disabled>Próximo passo</button>
+      <button id="btnReset" type="button" class="danger" disabled>Reiniciar</button>
+    </div>
+    <p class="hint" id="execHint">
+      “Próximo passo” executa <b>uma expansão por algoritmo ainda ativo</b> (ou uma etapa da reconstrução do caminho,
+      quando a busca já terminou). Use pause + próximo passo para avançar manualmente e comparar.
+    </p>
+    <div class="algo-panels">
+      <div class="algo" id="panel-bfs">
+        <h3>BFS — Busca em Largura (fila)</h3>
+        <p class="desc">Explora em ondas a partir do início. Como um agente cauteloso que verifica tudo que está perto antes de ir longe. <b>Garante o caminho mínimo</b> com custo uniforme.</p>
+        <div class="grid" data-grid="bfs"></div>
+        <div class="status" data-status="bfs">Aguardando início.</div>
+        <div class="metrics" data-metrics="bfs"></div>
+      </div>
+      <div class="algo" id="panel-dfs">
+        <h3>DFS — Busca em Profundidade (pilha)</h3>
+        <p class="desc">Segue fundo em um caminho até beco sem saída e então retrocede. Como um agente impulsivo que aposta em uma direção. <b>Não garante caminho mínimo</b>.</p>
+        <div class="grid" data-grid="dfs"></div>
+        <div class="status" data-status="dfs">Aguardando início.</div>
+        <div class="metrics" data-metrics="dfs"></div>
+      </div>
+      <div class="algo" id="panel-dijkstra">
+        <h3>Dijkstra — Custo mínimo (prioridade por g)</h3>
+        <p class="desc">Sempre expande a fronteira de menor custo acumulado <code>g</code> desde o início. Como um agente que minimiza energia gasta. Com custo 1, <b>garante caminho mínimo</b>.</p>
+        <div class="grid" data-grid="dijkstra"></div>
+        <div class="status" data-status="dijkstra">Aguardando início.</div>
+        <div class="metrics" data-metrics="dijkstra"></div>
+      </div>
+      <div class="algo" id="panel-astar">
+        <h3>A* — Custo + heurística (f = g + h)</h3>
+        <p class="desc">Soma o custo <code>g</code> com a estimativa <code>h</code> (Manhattan) até o destino. Como um agente com bússola. Com heurística admissível, <b>garante caminho mínimo</b> e, em muitos labirintos, expande menos células que o Dijkstra — mas essa redução não é garantida em todos os casos.</p>
+        <div class="grid" data-grid="astar"></div>
+        <div class="status" data-status="astar">Aguardando início.</div>
+        <div class="metrics" data-metrics="astar"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="summaryCard" hidden>
+    <h2>3. Resumo comparativo</h2>
+    <p id="summaryText"></p>
+    <div style="overflow-x:auto">
+      <table id="summaryTable" aria-label="Tabela comparativa"></table>
+    </div>
+    <p class="hint">
+      <b>Nota sobre tempo:</b> tempos muito pequenos (poucos milissegundos) sofrem variação do navegador e do sistema
+      e <b>não constituem comparação rigorosa de desempenho</b>. Use expansões e células visitadas como medida principal
+      de esforço de busca; use o tempo apenas como indicação aproximada. O tempo exibido exclui pausas e atrasos da animação.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Como abrir e usar</h2>
+    <ol>
+      <li>Salve este arquivo como <code>labirinto.html</code> e abra-o com <b>duplo clique</b> em qualquer navegador moderno (Chrome, Edge, Firefox). Não precisa de internet.</li>
+      <li>Ajuste linhas/colunas (5–30), clique em <b>Aplicar tamanho</b>, desenhe paredes ou use <b>exemplo / aleatório</b>.</li>
+      <li>Clique em <b>Iniciar</b>. Use <b>Pausar</b>, <b>Próximo passo</b> e o controle de velocidade para estudar cada expansão.</li>
+      <li>Clique em <b>Reiniciar</b> para editar o labirinto novamente.</li>
+    </ol>
+  </section>
+</main>
+
+<footer>
+  Arquivo autocontido: CSS e JavaScript embutidos, sem bibliotecas, fontes ou dependências externas.
+  Ordem de vizinhos fixa: Cima, Direita, Baixo, Esquerda. Custo 1 por movimento. Heurística A*: Manhattan.
+</footer>
+
+<script>
+"use strict";
+/* Ordem fixa e documentada de vizinhos (reproduzibilidade). */
+const DIRS = [
+  { dr: -1, dc: 0, nome: "Cima" },
+  { dr: 0, dc: 1, nome: "Direita" },
+  { dr: 1, dc: 0, nome: "Baixo" },
+  { dr: 0, dc: -1, nome: "Esquerda" }
+];
+
+let ROWS = 15, COLS = 15;
+let walls = new Set();
+let start = { r: 0, c: 0 };
+let goal = { r: 14, c: 14 };
+let execState = "idle"; // idle | running | paused | finished
+let timerId = null;
+let painting = false;
+let paintValue = null;
+
+const $ = (s) => document.querySelector(s);
+const rowsInput = $("#rows"), colsInput = $("#cols");
+const toolSel = $("#tool"), speedInput = $("#speed"), speedLabel = $("#speedLabel");
+const editorEl = $("#editor");
+const lockMsg = $("#lockMsg");
+const btnStart = $("#btnStart"), btnPause = $("#btnPause"),
+      btnStep = $("#btnStep"), btnReset = $("#btnReset");
+const btnExample = $("#btnExample"), btnClear = $("#btnClear"),
+      btnRandom = $("#btnRandom"), btnApplySize = $("#btnApplySize");
+
+const key = (r, c) => r + "," + c;
+const inBounds = (r, c) => r >= 0 && r < ROWS && c >= 0 && c < COLS;
+const isWall = (r, c) => walls.has(key(r, c));
+const manhattan = (r, c) => Math.abs(r - goal.r) + Math.abs(c - goal.c);
+const delayMs = () => parseInt(speedInput.value, 10);
+
+/* ---------- Estado dos algoritmos ---------- */
+function newAlgoState(kind) {
+  const s = {
+    kind, expansions: 0, computeMs: 0,
+    discovered: new Set([key(start.r, start.c)]),
+    expanded: new Set(), // células efetivamente retiradas da fronteira e processadas
+    parent: new Map(),
+    current: null, found: false, noSolution: false,
+    expandingDone: false, path: [], reconIndex: 0, done: false,
+    frontierSize: 0, seq: 0, closed: new Set()
+  };
+  if (kind === "bfs") { s.queue = [{ r: start.r, c: start.c }]; s.head = 0; s.frontierSize = 1; }
+  if (kind === "dfs") { s.stack = [{ r: start.r, c: start.c }]; s.frontierSize = 1; }
+  if (kind === "dijkstra") {
+    s.dist = new Map([[key(start.r, start.c), 0]]);
+    s.frontier = [{ r: start.r, c: start.c, g: 0, seq: s.seq++ }];
+    s.frontierSize = 1;
+  }
+  if (kind === "astar") {
+    s.g = new Map([[key(start.r, start.c), 0]]);
+    s.frontier = [{ r: start.r, c: start.c, g: 0, f: manhattan(start.r, start.c), seq: s.seq++ }];
+    s.frontierSize = 1;
+  }
+  // Caso degenerado: início == destino (evitado pela UI, mas tratado).
+  if (start.r === goal.r && start.c === goal.c) {
+    s.found = true; s.expandingDone = true;
+    s.path = [{ r: start.r, c: start.c }]; s.reconIndex = 0;
+  }
+  return s;
+}
+let algos = {};
+
+function buildPath(parent, g) {
+  const path = [{ r: g.r, c: g.c }];
+  let k = key(g.r, g.c);
+  while (parent.has(k)) {
+    const p = parent.get(k); // "r,c"
+    const [r, c] = p.split(",").map(Number);
+    path.push({ r, c });
+    k = p;
+  }
+  path.reverse();
+  return path;
+}
+
+function validNeighbor(r, c) {
+  return inBounds(r, c) && !isWall(r, c);
+}
+
+/* Uma expansão de BFS. Retorna true se houve progresso. */
+function stepBFS(s) {
+  if (s.head >= s.queue.length) { s.noSolution = true; s.expandingDone = true; return true; }
+  const cur = s.queue[s.head++];
+  s.current = cur; s.expansions++;
+  s.expanded.add(key(cur.r, cur.c));
+  s.frontierSize = s.queue.length - s.head;
+  if (cur.r === goal.r && cur.c === goal.c) {
+    s.found = true; s.expandingDone = true;
+    s.path = buildPath(s.parent, goal); return true;
+  }
+  for (const d of DIRS) {
+    const nr = cur.r + d.dr, nc = cur.c + d.dc;
+    if (!validNeighbor(nr, nc)) continue;
+    const k = key(nr, nc);
+    if (s.discovered.has(k)) continue;
+    s.discovered.add(k);
+    s.parent.set(k, key(cur.r, cur.c));
+    s.queue.push({ r: nr, c: nc });
+  }
+  return true;
+}
+
+function stepDFS(s) {
+  if (s.stack.length === 0) { s.noSolution = true; s.expandingDone = true; return true; }
+  const cur = s.stack.pop();
+  s.current = cur; s.expansions++;
+  s.expanded.add(key(cur.r, cur.c));
+  s.frontierSize = s.stack.length;
+  if (cur.r === goal.r && cur.c === goal.c) {
+    s.found = true; s.expandingDone = true;
+    s.path = buildPath(s.parent, goal); return true;
+  }
+  // Empilha em ordem reversa para que "Cima" seja desempilhado primeiro.
+  for (let i = DIRS.length - 1; i >= 0; i--) {
+    const d = DIRS[i];
+    const nr = cur.r + d.dr, nc = cur.c + d.dc;
+    if (!validNeighbor(nr, nc)) continue;
+    const k = key(nr, nc);
+    if (s.discovered.has(k)) continue;
+    s.discovered.add(k);
+    s.parent.set(k, key(cur.r, cur.c));
+    s.stack.push({ r: nr, c: nc });
+  }
+  return true;
+}
+
+function extractMin(frontier, scoreFn) {
+  let bi = 0;
+  for (let i = 1; i < frontier.length; i++) {
+    if (scoreFn(frontier[i], frontier[bi]) < 0) bi = i;
+  }
+  return frontier.splice(bi, 1)[0];
+}
+
+function stepDijkstra(s) {
+  if (s.frontier.length === 0) { s.noSolution = true; s.expandingDone = true; return true; }
+  const cur = extractMin(s.frontier, (a, b) => (a.g - b.g) || (a.seq - b.seq));
+  const ck = key(cur.r, cur.c);
+  if (s.closed.has(ck)) { s.frontierSize = s.frontier.length; return true; }
+  s.closed.add(ck);
+  s.current = { r: cur.r, c: cur.c }; s.expansions++;
+  s.expanded.add(ck);
+  if (cur.r === goal.r && cur.c === goal.c) {
+    s.found = true; s.expandingDone = true;
+    s.path = buildPath(s.parent, goal); s.frontierSize = s.frontier.length; return true;
+  }
+  for (const d of DIRS) {
+    const nr = cur.r + d.dr, nc = cur.c + d.dc;
+    if (!validNeighbor(nr, nc)) continue;
+    const nk = key(nr, nc);
+    if (s.closed.has(nk)) continue;
+    const ng = cur.g + 1;
+    if (!s.discovered.has(nk) || ng < s.dist.get(nk)) {
+      s.discovered.add(nk);
+      s.dist.set(nk, ng);
+      s.parent.set(nk, ck);
+      const existing = s.frontier.findIndex(e => key(e.r, e.c) === nk);
+      if (existing >= 0) s.frontier[existing].g = ng;
+      else s.frontier.push({ r: nr, c: nc, g: ng, seq: s.seq++ });
+    }
+  }
+  s.frontierSize = s.frontier.length;
+  return true;
+}
+
+function stepAStar(s) {
+  if (s.frontier.length === 0) { s.noSolution = true; s.expandingDone = true; return true; }
+  const cur = extractMin(s.frontier, (a, b) => (a.f - b.f) || (manhattan(a.r, a.c) - manhattan(b.r, b.c)) || (a.seq - b.seq));
+  const ck = key(cur.r, cur.c);
+  if (s.closed.has(ck)) { s.frontierSize = s.frontier.length; return true; }
+  s.closed.add(ck);
+  s.current = { r: cur.r, c: cur.c }; s.expansions++;
+  s.expanded.add(ck);
+  if (cur.r === goal.r && cur.c === goal.c) {
+    s.found = true; s.expandingDone = true;
+    s.path = buildPath(s.parent, goal); s.frontierSize = s.frontier.length; return true;
+  }
+  for (const d of DIRS) {
+    const nr = cur.r + d.dr, nc = cur.c + d.dc;
+    if (!validNeighbor(nr, nc)) continue;
+    const nk = key(nr, nc);
+    if (s.closed.has(nk)) continue;
+    const ng = cur.g + 1;
+    if (!s.discovered.has(nk) || ng < s.g.get(nk)) {
+      s.discovered.add(nk);
+      s.g.set(nk, ng);
+      s.parent.set(nk, ck);
+      const nf = ng + manhattan(nr, nc);
+      const existing = s.frontier.findIndex(e => key(e.r, e.c) === nk);
+      if (existing >= 0) { s.frontier[existing].g = ng; s.frontier[existing].f = nf; }
+      else s.frontier.push({ r: nr, c: nc, g: ng, f: nf, seq: s.seq++ });
+    }
+  }
+  s.frontierSize = s.frontier.length;
+  return true;
+}
+
+/* Um passo de UM algoritmo: expansão ou uma etapa da reconstrução. */
+function stepOneAlgo(s) {
+  const t0 = performance.now();
+  try {
+    if (!s.expandingDone) {
+      if (s.kind === "bfs") stepBFS(s);
+      else if (s.kind === "dfs") stepDFS(s);
+      else if (s.kind === "dijkstra") stepDijkstra(s);
+      else stepAStar(s);
+      if (s.expandingDone && s.found) s.reconIndex = 0;
+      if (s.expandingDone && !s.found) s.done = true;
+    } else if (s.found && !s.done) {
+      // Anima a reconstrução: revela uma célula do caminho por passo.
+      s.reconIndex++;
+      if (s.reconIndex >= s.path.length) s.done = true;
+    }
+  } finally {
+    s.computeMs += performance.now() - t0;
+  }
+}
+
+function allDone() { return Object.values(algos).every(s => s.done); }
+
+/* ---------- Controle de execução ---------- */
+function initAlgos() {
+  algos = {
+    bfs: newAlgoState("bfs"),
+    dfs: newAlgoState("dfs"),
+    dijkstra: newAlgoState("dijkstra"),
+    astar: newAlgoState("astar")
+  };
+}
+
+function setButtons() {
+  btnStart.disabled = !(execState === "idle" || execState === "paused");
+  btnStart.textContent = execState === "paused" ? "Continuar" : "Iniciar";
+  btnPause.disabled = !(execState === "running");
+  btnStep.disabled = !(execState === "paused" || execState === "idle");
+  btnReset.disabled = !(execState === "running" || execState === "paused" || execState === "finished");
+  // Bloqueio de edição: tamanho, ferramentas e labirintos prontos exigem Reiniciar.
+  const locked = execState !== "idle";
+  rowsInput.disabled = locked;
+  colsInput.disabled = locked;
+  toolSel.disabled = locked;
+  btnExample.disabled = locked;
+  btnClear.disabled = locked;
+  btnRandom.disabled = locked;
+  btnApplySize.disabled = locked;
+  lockMsg.hidden = !locked;
+}
+
+function scheduleTick() {
+  clearTimeout(timerId);
+  if (execState !== "running") return;
+  timerId = setTimeout(() => {
+    stepAll();
+    if (execState === "running") scheduleTick();
+  }, delayMs());
+}
+
+function stepAll() {
+  for (const k of Object.keys(algos)) {
+    const s = algos[k];
+    if (!s.done) stepOneAlgo(s);
+  }
+  renderAll();
+  if (allDone()) { finishExecution(); }
+}
+
+function startExecution() {
+  if (execState === "idle") { initAlgos(); }
+  if (allDone()) return;
+  execState = "running";
+  setButtons(); renderAll(); scheduleTick();
+}
+
+function pauseExecution() {
+  if (execState !== "running") return;
+  execState = "paused";
+  clearTimeout(timerId); setButtons(); renderAll();
+}
+
+function stepOnce() {
+  if (execState === "finished") return;
+  if (execState === "running") pauseExecution();
+  if (execState === "idle") initAlgos();
+  execState = "paused";
+  stepAll();
+  if (allDone()) finishExecution();
+  else { setButtons(); }
+}
+
+function resetExecution() {
+  clearTimeout(timerId);
+  execState = "idle";
+  initAlgos();
+  $("#summaryCard").hidden = true;
+  setButtons(); renderAll();
+}
+
+function finishExecution() {
+  clearTimeout(timerId);
+  execState = "finished";
+  setButtons(); renderAll(); renderSummary();
+}
+
+/* ---------- Renderização ---------- */
+function cellLabel(cls) {
+  if (cls === "start") return "I";
+  if (cls === "goal") return "D";
+  if (cls === "frontier") return "F";
+  if (cls === "visited") return "·";
+  if (cls === "current") return "@";
+  if (cls === "path") return "*";
+  return "";
+}
+
+function cellClassFor(r, c, s) {
+  const k = key(r, c);
+  if (r === start.r && c === start.c) return "start";
+  if (r === goal.r && c === goal.c) return "goal";
+  if (isWall(r, c)) return "wall";
+  if (!s) return "";
+  // Caminho revelado até reconIndex (apenas após encontrar).
+  if (s.found && s.reconIndex > 0) {
+    const shown = new Set(s.path.slice(0, s.reconIndex).map(p => key(p.r, p.c)));
+    if (shown.has(k)) return "path";
+  }
+  if (s.current && s.current.r === r && s.current.c === c && !s.done) return "current";
+  if (s.kind === "bfs") {
+    const inQueue = s.queue.slice(s.head).some(e => e.r === r && e.c === c);
+    if (inQueue) return "frontier";
+  } else if (s.kind === "dfs") {
+    if (s.stack.some(e => e.r === r && e.c === c)) return "frontier";
+  } else {
+    if (s.frontier.some(e => e.r === r && e.c === c)) return "frontier";
+  }
+  if (s.discovered.has(k)) return "visited";
+  return "";
+}
+
+function renderGridInto(el, s, editable) {
+  el.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+  el.innerHTML = "";
+  const frag = document.createDocumentFragment();
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const d = document.createElement("div");
+      const cls = editable ? editorCellClass(r, c) : cellClassFor(r, c, s);
+      d.className = "cell" + (cls ? " " + cls : "");
+      d.textContent = cellLabel(cls);
+      d.dataset.r = r; d.dataset.c = c;
+      d.title = `(${r},${c}) ` + (
+        cls === "start" ? "Início" :
+        cls === "goal" ? "Destino" :
+        cls === "wall" ? "Parede" :
+        cls === "frontier" ? "Fronteira" :
+        cls === "visited" ? "Visitada" :
+        cls === "current" ? "Atual" :
+        cls === "path" ? "Caminho" : "Livre");
+      frag.appendChild(d);
+    }
+  }
+  el.appendChild(frag);
+}
+
+function editorCellClass(r, c) {
+  if (r === start.r && c === start.c) return "start";
+  if (r === goal.r && c === goal.c) return "goal";
+  if (isWall(r, c)) return "wall";
+  return "";
+}
+
+function statusText(s) {
+  if (execState === "idle") return "Aguardando início.";
+  if (s.found && s.done) return `Destino alcançado. Caminho: ${s.path.length - 1} movimento(s). Reconstrução concluída.`;
+  if (s.found) return `Destino encontrado! Reconstruindo caminho… (${Math.min(s.reconIndex, s.path.length)}/${s.path.length} células).`;
+  if (s.noSolution) return "Sem solução: fronteira esgotada, destino inalcançável.";
+  if (s.expandingDone) return "Busca encerrada.";
+  return `Explorando… atual=(${s.current ? s.current.r + "," + s.current.c : "—"}).`;
+}
+
+function metricsHtml(s) {
+  const pathLen = s.found ? (s.path.length - 1) : "—";
+  const visitedUnique = s.expanded.size; // apenas células efetivamente expandidas (fronteira excluída)
+  return `
+    <div class="metric">Expansões<b>${s.expansions}</b></div>
+    <div class="metric">Visitadas únicas<b>${visitedUnique}</b></div>
+    <div class="metric">Fronteira atual<b>${s.frontierSize}</b></div>
+    <div class="metric">Caminho (movimentos)<b>${pathLen}</b></div>
+    <div class="metric" style="grid-column:1/-1">Tempo de computação (sem animação)<b>${s.computeMs.toFixed(2)} ms</b></div>
+  `;
+}
+
+function renderAll() {
+  renderGridInto(editorEl, null, true);
+  for (const k of ["bfs", "dfs", "dijkstra", "astar"]) {
+    const gridEl = document.querySelector(`[data-grid="${k}"]`);
+    if (gridEl) renderGridInto(gridEl, algos[k], false);
+    const stEl = document.querySelector(`[data-status="${k}"]`);
+    if (stEl) stEl.textContent = statusText(algos[k]);
+    const mEl = document.querySelector(`[data-metrics="${k}"]`);
+    if (mEl) mEl.innerHTML = metricsHtml(algos[k]);
+  }
+}
+
+function renderSummary() {
+  const card = $("#summaryCard");
+  card.hidden = false;
+  const order = [["bfs", "BFS"], ["dfs", "DFS"], ["dijkstra", "Dijkstra"], ["astar", "A*"]];
+  let html = `<tr><th>Algoritmo</th><th>Resultado</th><th>Expansões</th><th>Visitadas únicas</th><th>Caminho (mov.)</th><th>Tempo*</th></tr>`;
+  for (const [k, nome] of order) {
+    const s = algos[k];
+    const res = s.found ? `Encontrou (${s.path.length - 1} mov.)` : "Sem solução";
+    html += `<tr><td>${nome}</td><td>${res}</td><td>${s.expansions}</td><td>${s.expanded.size}</td><td>${s.found ? s.path.length - 1 : "—"}</td><td>${s.computeMs.toFixed(2)} ms</td></tr>`;
+  }
+  $("#summaryTable").innerHTML = html;
+
+  const found = order.filter(([k]) => algos[k].found);
+  const none = found.length === 0;
+  const lens = found.map(([k]) => algos[k].path.length - 1);
+  const minLen = found.length ? Math.min(...lens) : null;
+  const optimalOk = ["bfs", "dijkstra", "astar"].every(k => !algos[k].found || (algos[k].path.length - 1) === minLen);
+  let txt;
+  if (none) {
+    txt = "Nenhum algoritmo encontrou solução: o destino está inalcançável (cercado por paredes ou região desconectada). " +
+      "Isso mostra um comportamento correto de agentes de busca: detectar e relatar a ausência de caminho. " +
+      "Clique em Reiniciar, abra uma passagem e execute de novo.";
+  } else {
+    const exps = order.map(([k, n]) => `${n}=${algos[k].expansions}`).join(", ");
+    txt = `Menor caminho encontrado: ${minLen} movimento(s). Expansões — ${exps}. `;
+    txt += optimalOk
+      ? "BFS, Dijkstra e A* concordam no comprimento mínimo, como esperado com custo uniforme."
+      : "Atenção: divergência entre BFS/Dijkstra/A* (não esperada com custo uniforme) — verifique o labirinto.";
+    const dfs = algos.dfs;
+    if (dfs.found && (dfs.path.length - 1) > minLen)
+      txt += ` DFS encontrou um caminho mais longo (${dfs.path.length - 1} mov.), ilustrando que profundidade não garante otimalidade.`;
+    else if (dfs.found)
+      txt += " Neste labirinto o DFS coincidiu com o ótimo, mas isso não é garantido em geral.";
+    const amin = Math.min(algos.bfs.expansions, algos.dijkstra.expansions, algos.astar.expansions);
+    const winners = order.filter(([k]) => ["bfs", "dijkstra", "astar"].includes(k) && algos[k].expansions === amin).map(([, n]) => n);
+    txt += ` Menos expansões entre os ótimos: ${winners.join(", ")}.`;
+    txt += " *Tempos pequenos variam entre execuções; compare principalmente expansões e visitadas.";
+  }
+  // Validação de sanidade: caminhos nunca atravessam paredes.
+  const bad = order.filter(([k]) => algos[k].found && !pathIsValid(algos[k].path)).map(([, n]) => n);
+  if (bad.length) txt += ` ERRO de integridade nos caminhos: ${bad.join(", ")}.`;
+  $("#summaryText").textContent = txt;
+  card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function pathIsValid(path) {
+  for (let i = 0; i < path.length; i++) {
+    const p = path[i];
+    if (!inBounds(p.r, p.c) || isWall(p.r, p.c)) return false;
+    if (i > 0) {
+      const q = path[i - 1];
+      if (Math.abs(p.r - q.r) + Math.abs(p.c - q.c) !== 1) return false;
+    }
+  }
+  if (path.length === 0) return false;
+  const a = path[0], b = path[path.length - 1];
+  return a.r === start.r && a.c === start.c && b.r === goal.r && b.c === goal.c;
+}
+
+/* ---------- Edição ---------- */
+function canEdit() { return execState === "idle"; }
+
+function applyClick(r, c) {
+  if (!canEdit()) return;
+  const tool = toolSel.value;
+  const k = key(r, c);
+  if (tool === "wall") {
+    if ((r === start.r && c === start.c) || (r === goal.r && c === goal.c)) return;
+    walls.add(k);
+  } else if (tool === "erase") {
+    walls.delete(k);
+  } else if (tool === "start") {
+    if (r === goal.r && c === goal.c) return; // distintos
+    start = { r, c }; walls.delete(k);
+  } else if (tool === "goal") {
+    if (r === start.r && c === start.c) return;
+    goal = { r, c }; walls.delete(k);
+  }
+  initAlgos(); renderAll();
+}
+
+editorEl.addEventListener("mousedown", (e) => {
+  const cell = e.target.closest(".cell");
+  if (!cell) return;
+  if (!canEdit()) return;
+  painting = true;
+  const tool = toolSel.value;
+  paintValue = (tool === "erase") ? false : true;
+  applyClick(parseInt(cell.dataset.r, 10), parseInt(cell.dataset.c, 10));
+  e.preventDefault();
+});
+document.addEventListener("mouseup", () => { painting = false; });
+editorEl.addEventListener("mouseover", (e) => {
+  if (!painting || !canEdit()) return;
+  const cell = e.target.closest(".cell");
+  if (!cell) return;
+  const tool = toolSel.value;
+  if (tool !== "wall" && tool !== "erase") return; // arrastar só pinta/apaga
+  applyClick(parseInt(cell.dataset.r, 10), parseInt(cell.dataset.c, 10));
+});
+
+/* ---------- Labirintos ---------- */
+function clampSize(v) {
+  v = parseInt(v, 10);
+  if (Number.isNaN(v)) return 15;
+  return Math.min(30, Math.max(5, v));
+}
+
+function applySize() {
+  if (!canEdit()) return; // tamanho só pode mudar fora de execução/pausa/conclusão
+  ROWS = clampSize(rowsInput.value);
+  COLS = clampSize(colsInput.value);
+  rowsInput.value = ROWS; colsInput.value = COLS;
+  start = { r: 0, c: 0 };
+  goal = { r: ROWS - 1, c: COLS - 1 };
+  // Remove paredes fora dos limites.
+  for (const k of [...walls]) {
+    const [r, c] = k.split(",").map(Number);
+    if (r >= ROWS || c >= COLS) walls.delete(k);
+  }
+  walls.delete(key(start.r, start.c));
+  walls.delete(key(goal.r, goal.c));
+  resetExecution();
+}
+
+function exampleMaze() {
+  walls.clear();
+  // Padrão determinístico: barreiras verticais/horizontais com passagens.
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const vertical = (c % 4 === 2) && r !== Math.floor(ROWS / 2) && !(r === 0 && c < 3);
+      const horizontal = (r % 5 === 3) && (c % 4 !== 0);
+      if ((vertical || horizontal) && !(r === 0 && c === 0) && !(r === ROWS - 1 && c === COLS - 1)) {
+        // Mantém início e destino da UI, não os sobrescreve.
+        walls.add(key(r, c));
+      }
+    }
+  }
+  walls.delete(key(start.r, start.c));
+  walls.delete(key(goal.r, goal.c));
+  resetExecution();
+}
+
+function randomMaze() {
+  walls.clear();
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if ((r === start.r && c === start.c) || (r === goal.r && c === goal.c)) continue;
+      if (Math.random() < 0.28) walls.add(key(r, c));
+    }
+  }
+  resetExecution();
+}
+
+/* ---------- Eventos ---------- */
+$("#btnApplySize").addEventListener("click", applySize);
+$("#btnExample").addEventListener("click", () => { if (!canEdit()) return; exampleMaze(); });
+$("#btnClear").addEventListener("click", () => { if (!canEdit()) return; walls.clear(); resetExecution(); });
+$("#btnRandom").addEventListener("click", () => { if (!canEdit()) return; randomMaze(); });
+btnStart.addEventListener("click", startExecution);
+btnPause.addEventListener("click", pauseExecution);
+btnStep.addEventListener("click", stepOnce);
+btnReset.addEventListener("click", resetExecution);
+speedInput.addEventListener("input", () => { speedLabel.textContent = `${delayMs()} ms / passo`; });
+
+/* ---------- Init ---------- */
+exampleMaze();
+setButtons();
+renderAll();
+</script>
+</body>
+</html>
